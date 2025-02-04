@@ -20,19 +20,35 @@ class Cli {
             name: "selectAction",
             message: "What would you like to do?",
             choices: [
+                "View All Departments",
+                "View All Roles",
                 "View All Employees",
+                "Add Department",
+                "Add Role",
                 "Add Employee",
                 "Update Employee Role",
-                "View All Roles",
-                "Add Role",
-                "View All Departments",
-                "Add Department",
                 "Quit",
             ],
         }
     ])
         .then( async (answers)  => {
-            if (answers.selectAction === "View All Employees") {
+            if (answers.selectAction === 'View All Departments') {
+                try {
+                    const query = `SELECT id, department_name FROM department`;
+                    const results = await pool.query(query);
+
+                    console.table(results.rows);
+
+                    await this.pausePrompt();
+
+                } catch (err) {
+                    console.error('Error connecting to database:', err);
+                }
+            // } else if (answers.selectAction === 'Add Department') {
+            // } else if (answers.selectAction === 'View All Roles') {
+            // } else if (answers.selectAction === 'Add Role') {
+
+        } else if (answers.selectAction === "View All Employees") {
                 try {
                     const query = `
                     SELECT 
@@ -119,15 +135,51 @@ class Cli {
         
     
         } else if (answers.selectAction === 'Update Employee Role') {
+            try {
+                const employeeQuery = `SELECT id, first_name FROM employee`;
+                const employeeResult = await pool.query(employeeQuery);
+                const employeeChoices = employeeResult.rows.map(employee => ({
+                    name: employee.first_name,
+                    value: employee.id
+                }))
 
-        // } else if (answers.selectAction === 'View All Roles') {
+                const roleQuery = `SELECT id, title FROM role`
+                const roleResult = await pool.query(roleQuery);
+                const roleChoices = roleResult.rows.map(role => ({
+                    name: role.title,
+                    value: role.id
+                }))
 
-        // } else if (answers.selectAction === 'Add Role') {
+                const employeeAnswers = await inquirer.prompt([
+                {
+                    type: "list",
+                    name: "updateEmployee",
+                    message: "Please select the employee to update",
+                    choices: employeeChoices
+                },
+                {
+                    type: "list",
+                    name: "newRole",
+                    message: 'Please select the new role.',
+                    choices: roleChoices
+                }
+                ]);
+                
+                const currentRoleQuery = `SELECT role_id FROM employee WHERE id = $1`;
+                const currentRoleResult = await pool.query(currentRoleQuery, [employeeAnswers.updateEmployee]);
+                const currentRoleId = currentRoleResult.rows[0].role_id
 
-        // } else if (answers.selectAction === 'View All Departments') {
+                if (employeeAnswers.newRole === currentRoleId) {
+                    console.log('The selected role is the same as the current role. Please select a different role')
+                } else {
+                    const updateQuery = `UPDATE employee SET role_id = $1 WHERE id =$2`;
+                    await pool.query(updateQuery, [employeeAnswers.newRole, employeeAnswers.updateEmployee]);
+                    console.log(`Employee's role successfully updated!`)
+                }
 
-        // } else if (answers.selectAction === 'Add Department') {
-
+            } catch (err) {
+                console.error('Error:', err);
+            }
     }
          else if (answers.selectAction === 'Quit') {
             console.log("Exiting the application...");
