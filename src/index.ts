@@ -45,7 +45,26 @@ class Cli {
                     console.error('Error connecting to database:', err);
                 }
             // } else if (answers.selectAction === 'Add Department') {
-            // } else if (answers.selectAction === 'View All Roles') {
+            } else if (answers.selectAction === 'View All Roles') {
+                try {
+                    const query = `
+                    SELECT 
+                        role.id, 
+                        role.title,
+                        role.salary,
+                        department.department_name
+                    FROM role
+                    JOIN department ON role.department_id = department.id
+                    `;
+                    const results = await pool.query(query);
+
+                    console.table(results.rows);
+
+                    await this.pausePrompt();
+
+                } catch (err) {
+                    console.error('Error connecting to database:', err);
+                }
             // } else if (answers.selectAction === 'Add Role') {
 
         } else if (answers.selectAction === "View All Employees") {
