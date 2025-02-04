@@ -2,13 +2,22 @@ import inquirer from 'inquirer';
 import { pool } from './db/connection.js';
 
 class Cli {
-    exit: boolean = false;
+
+    async pausePrompt() {
+        await inquirer.prompt([
+            {
+                type: "input",
+                name: "continue",
+                message: "Press Enter to continue...",
+            },
+        ]);
+    }
 
     startApp() {
     inquirer
         .prompt([{
             type: "list",
-            name: "selectActions",
+            name: "selectAction",
             message: "What would you like to do?",
             choices: [
                 "View All Employees",
@@ -23,7 +32,7 @@ class Cli {
         }
     ])
         .then( async (answers)  => {
-            if (answers.action === "View All Emloyees") {
+            if (answers.selectAction === "View All Employees") {
                 try {
                     const query = `
                     SELECT 
@@ -39,32 +48,94 @@ class Cli {
                     JOIN department ON role.department_id = department.id;
                     `                   
                     const result = await pool.query(query);
-                    console.table(result.rows)
+                    console.table(result.rows);
+                    
+                    await this.pausePrompt();
+
                 } catch (err) {
                     console.error('Error connecting to database:', err);
-                    this.startApp()
                 }
-            }
-        // } else if (answers.action === 'Add Employee') {
+            
+        } else if (answers.selectAction === 'Add Employee') {
+            try {
+                const rolesQuery = `SELECT id, title FROM role`;
+                const rolesResult = await pool.query(rolesQuery);
+                const roleChoices = rolesResult.rows.map(role => ({
+                    name: role.title,
+                    value: role.id
+                }))
 
-        // } else if (answers.action === 'Update Employee Role') {
+                const managersQuery = `SELECT id, first_name FROM employee WHERE manager_id IS NULL`;
+                const managersResult = await pool.query(managersQuery);
+                const managerChoices = managersResult.rows.map(manager => ({
+                    name: manager.first_name,
+                    value: manager.id
+                }));
 
-        // } else if (answers.action === 'View All Roles') {
+                managerChoices.unshift({name: 'None', value: null});
 
-        // } else if (answers.action === 'Add Role') {
+                const employeeAnswers = await inquirer.prompt ([
+                {
+                    type: 'input',
+                    name: 'newFirstName',
+                    message: 'Please enter first name.',
+                },
+                {
+                    type: 'input',
+                    name: 'newLastName',
+                    message: 'Please enter last name.',
+                },
+                {
+                    type: 'list',
+                    name: 'newRole',
+                    message: 'Please select the role for the employee',
+                    choices: roleChoices
+                },
+                {
+                    type: 'list',
+                    name: 'reportsTo',
+                    message: 'Please select the manager for this employee',
+                    choices: managerChoices
+                },
+            ]);
+            
+                const query = `
+                INSERT INTO employee (first_name, last_name, role_id, manager_id)
+                VALUES ($1, $2, $3, $4);
+                `;
+                const values = [
+                    employeeAnswers.newFirstName,
+                    employeeAnswers.newLastName,
+                    employeeAnswers.newRole,
+                    employeeAnswers.reportsTo 
+  
+                ];
+                await pool.query(query, values);
+                console.log(`${employeeAnswers.newFirstName} ${employeeAnswers.newLastName} successfully added!`);
+        
+            } catch (err) {
+            console.error('Error:', err)
+        }
+        
+    
+        } else if (answers.selectAction === 'Update Employee Role') {
 
-        // } else if (answers.action === 'View All Departments') {
+        // } else if (answers.selectAction === 'View All Roles') {
 
-        // } else if (answers.action === 'Add Department') {
+        // } else if (answers.selectAction === 'Add Role') {
 
-        // }
-         else {
-        this.exit = true;
+        // } else if (answers.selectAction === 'View All Departments') {
+
+        // } else if (answers.selectAction === 'Add Department') {
+
     }
-    if (!this.exit) {
+         else if (answers.selectAction === 'Quit') {
+            console.log("Exiting the application...");
+            process.exit(0);
+    }
         this.startApp();
     }
-    });
+);
 }
 }
 
