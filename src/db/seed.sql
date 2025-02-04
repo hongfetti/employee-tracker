@@ -13,18 +13,19 @@ VALUES ('Sales Manager', 100000, 1),
 
 SELECT setval('employee_id_seq', 1, false);
 INSERT INTO employee (first_name, last_name, role_id, manager_id)
-VALUES ('Matt', 'Smith', 1, 1),
-('John', 'Doe', 2, null),
-('Jane', 'Brown', 3, 2),
-('Jill', 'McNeil', 4, null),
-('Marc', 'Kim', 5, 3),
-('Rebecca', 'Clark', 6, null);
+VALUES ('Matt', 'Smith', 1, null),
+('John', 'Doe', 2, 1),
+('Jane', 'Brown', 3, null),
+('Jill', 'McNeil', 4, 3),
+('Marc', 'Kim', 5, null),
+('Rebecca', 'Clark', 6, 5);
 
-SELECT *
-FROM department;
+-- SELECT *
+-- FROM department;
 
-SELECT *
-FROM role;
+-- SELECT *
+-- FROM role;
 
-SELECT *
-FROM employee;
+-- SELECT *
+-- FROM employee;
+
