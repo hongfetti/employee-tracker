@@ -14,40 +14,60 @@ class Cli {
     }
 
     startApp() {
-    inquirer
-        .prompt([{
-            type: "list",
-            name: "selectAction",
-            message: "What would you like to do?",
-            choices: [
-                "View All Departments",
-                "View All Roles",
-                "View All Employees",
-                "Add Department",
-                "Add Role",
-                "Add Employee",
-                "Update Employee Role",
-                "Quit",
-            ],
-        }
-    ])
-        .then( async (answers)  => {
-            if (answers.selectAction === 'View All Departments') {
-                try {
-                    const query = `SELECT id, department_name FROM department`;
-                    const results = await pool.query(query);
+        inquirer
+            .prompt([{
+                type: "list",
+                name: "selectAction",
+                message: "What would you like to do?",
+                choices: [
+                    "View All Departments",
+                    "View All Roles",
+                    "View All Employees",
+                    "Add Department",
+                    "Add Role",
+                    "Add Employee",
+                    "Update Employee Role",
+                    "Quit",
+                ],
+            }
+            ])
+            .then(async (answers) => {
+                if (answers.selectAction === 'View All Departments') {
+                    try {
+                        const query = `SELECT id, department_name FROM department`;
+                        const results = await pool.query(query);
 
-                    console.table(results.rows);
+                        console.table(results.rows);
 
-                    await this.pausePrompt();
+                        await this.pausePrompt();
 
-                } catch (err) {
-                    console.error('Error connecting to database:', err);
-                }
-            // } else if (answers.selectAction === 'Add Department') {
-            } else if (answers.selectAction === 'View All Roles') {
-                try {
-                    const query = `
+                    } catch (err) {
+                        console.error('Error connecting to database:', err);
+                    }
+                } else if (answers.selectAction === 'Add Department') {
+                    try {
+                        const departmentAnswers = await inquirer.prompt([
+                            {
+                                type: 'input',
+                                name: 'newDepartmentName',
+                                message: 'Please enter new department name'
+                            }
+                        ]);
+                        const query = `
+                     INSERT INTO department (department_name)
+                     VALUES ($1)
+                     `
+
+                        const value = [departmentAnswers.newDepartmentName];
+                        await pool.query(query, value);
+                        console.log(`${departmentAnswers.newDepartmentName} has been successfully added!`)
+                    } catch (err) {
+                        console.error('Error connecting to database:', err);
+                    }
+
+                } else if (answers.selectAction === 'View All Roles') {
+                    try {
+                        const query = `
                     SELECT 
                         role.id, 
                         role.title,
@@ -56,20 +76,61 @@ class Cli {
                     FROM role
                     JOIN department ON role.department_id = department.id
                     `;
-                    const results = await pool.query(query);
+                        const results = await pool.query(query);
 
-                    console.table(results.rows);
+                        console.table(results.rows);
 
-                    await this.pausePrompt();
+                        await this.pausePrompt();
 
-                } catch (err) {
-                    console.error('Error connecting to database:', err);
-                }
-            // } else if (answers.selectAction === 'Add Role') {
+                    } catch (err) {
+                        console.error('Error connecting to database:', err);
+                    }
+                } else if (answers.selectAction === 'Add Role') {
+                    try {
+                        const departmentQuery = `SELECT id, department_name FROM department`;
+                        const departmentResult = await pool.query(departmentQuery);
+                        const departmentChoices = departmentResult.rows.map(department => ({
+                            name: department.department_name,
+                            value: department.id,
+                        }))
+                        const roleAnswers = await inquirer.prompt([
+                            {
+                                type: 'input',
+                                name: 'newRoleTitle',
+                                message: 'Please enter new role title.',
+                            },
+                            {
+                                type: 'input',
+                                name: 'newRoleSalary',
+                                message: 'Please enter salary for role.',
+                            },
+                            {
+                                type: 'list',
+                                name: 'newRoleDepartment',
+                                message: 'Please select the department this role is in.',
+                                choices: departmentChoices
+                            },
+                        ]);
 
-        } else if (answers.selectAction === "View All Employees") {
-                try {
-                    const query = `
+                        const query = `
+                    INSERT INTO role (title, salary, department_id)
+                    VALUES ($1, $2, $3)
+                    `
+                        const values = [
+                            roleAnswers.newRoleTitle,
+                            roleAnswers.newRoleSalary,
+                            roleAnswers.newRoleDepartment
+                        ]
+                        await pool.query(query, values);
+                        console.log(`${roleAnswers.newRoleTitle} successfully added!`);
+
+                    } catch (err) {
+                        console.error('Error connecting to database:', err);
+                    }
+
+                } else if (answers.selectAction === "View All Employees") {
+                    try {
+                        const query = `
                     SELECT 
                         e1.id AS employee_id, 
                         e1.first_name AS employee_name, 
@@ -81,133 +142,132 @@ class Cli {
                     LEFT JOIN employee e2 ON e1.manager_id = e2.id 
                     JOIN role ON e1.role_id = role.id
                     JOIN department ON role.department_id = department.id;
-                    `                   
-                    const result = await pool.query(query);
-                    console.table(result.rows);
-                    
-                    await this.pausePrompt();
+                    `
+                        const result = await pool.query(query);
+                        console.table(result.rows);
 
-                } catch (err) {
-                    console.error('Error connecting to database:', err);
-                }
-            
-        } else if (answers.selectAction === 'Add Employee') {
-            try {
-                const rolesQuery = `SELECT id, title FROM role`;
-                const rolesResult = await pool.query(rolesQuery);
-                const roleChoices = rolesResult.rows.map(role => ({
-                    name: role.title,
-                    value: role.id
-                }))
+                        await this.pausePrompt();
 
-                const managersQuery = `SELECT id, first_name FROM employee WHERE manager_id IS NULL`;
-                const managersResult = await pool.query(managersQuery);
-                const managerChoices = managersResult.rows.map(manager => ({
-                    name: manager.first_name,
-                    value: manager.id
-                }));
+                    } catch (err) {
+                        console.error('Error connecting to database:', err);
+                    }
 
-                managerChoices.unshift({name: 'None', value: null});
+                } else if (answers.selectAction === 'Add Employee') {
+                    try {
+                        const rolesQuery = `SELECT id, title FROM role`;
+                        const rolesResult = await pool.query(rolesQuery);
+                        const roleChoices = rolesResult.rows.map(role => ({
+                            name: role.title,
+                            value: role.id
+                        }))
 
-                const employeeAnswers = await inquirer.prompt ([
-                {
-                    type: 'input',
-                    name: 'newFirstName',
-                    message: 'Please enter first name.',
-                },
-                {
-                    type: 'input',
-                    name: 'newLastName',
-                    message: 'Please enter last name.',
-                },
-                {
-                    type: 'list',
-                    name: 'newRole',
-                    message: 'Please select the role for the employee',
-                    choices: roleChoices
-                },
-                {
-                    type: 'list',
-                    name: 'reportsTo',
-                    message: 'Please select the manager for this employee',
-                    choices: managerChoices
-                },
-            ]);
-            
-                const query = `
+                        const managersQuery = `SELECT id, first_name FROM employee WHERE manager_id IS NULL`;
+                        const managersResult = await pool.query(managersQuery);
+                        const managerChoices = managersResult.rows.map(manager => ({
+                            name: manager.first_name,
+                            value: manager.id
+                        }));
+
+                        managerChoices.unshift({ name: 'None', value: null });
+
+                        const employeeAnswers = await inquirer.prompt([
+                            {
+                                type: 'input',
+                                name: 'newFirstName',
+                                message: 'Please enter first name.',
+                            },
+                            {
+                                type: 'input',
+                                name: 'newLastName',
+                                message: 'Please enter last name.',
+                            },
+                            {
+                                type: 'list',
+                                name: 'newRole',
+                                message: 'Please select the role for the employee',
+                                choices: roleChoices
+                            },
+                            {
+                                type: 'list',
+                                name: 'reportsTo',
+                                message: 'Please select the manager for this employee',
+                                choices: managerChoices
+                            },
+                        ]);
+
+                        const query = `
                 INSERT INTO employee (first_name, last_name, role_id, manager_id)
                 VALUES ($1, $2, $3, $4);
                 `;
-                const values = [
-                    employeeAnswers.newFirstName,
-                    employeeAnswers.newLastName,
-                    employeeAnswers.newRole,
-                    employeeAnswers.reportsTo 
-  
-                ];
-                await pool.query(query, values);
-                console.log(`${employeeAnswers.newFirstName} ${employeeAnswers.newLastName} successfully added!`);
-        
-            } catch (err) {
-            console.error('Error:', err)
-        }
-        
-    
-        } else if (answers.selectAction === 'Update Employee Role') {
-            try {
-                const employeeQuery = `SELECT id, first_name FROM employee`;
-                const employeeResult = await pool.query(employeeQuery);
-                const employeeChoices = employeeResult.rows.map(employee => ({
-                    name: employee.first_name,
-                    value: employee.id
-                }))
+                        const values = [
+                            employeeAnswers.newFirstName,
+                            employeeAnswers.newLastName,
+                            employeeAnswers.newRole,
+                            employeeAnswers.reportsTo
 
-                const roleQuery = `SELECT id, title FROM role`
-                const roleResult = await pool.query(roleQuery);
-                const roleChoices = roleResult.rows.map(role => ({
-                    name: role.title,
-                    value: role.id
-                }))
+                        ];
+                        await pool.query(query, values);
+                        console.log(`${employeeAnswers.newFirstName} ${employeeAnswers.newLastName} successfully added!`);
 
-                const employeeAnswers = await inquirer.prompt([
-                {
-                    type: "list",
-                    name: "updateEmployee",
-                    message: "Please select the employee to update",
-                    choices: employeeChoices
-                },
-                {
-                    type: "list",
-                    name: "newRole",
-                    message: 'Please select the new role.',
-                    choices: roleChoices
+                    } catch (err) {
+                        console.error('Error:', err)
+                    }
+
+
+                } else if (answers.selectAction === 'Update Employee Role') {
+                    try {
+                        const employeeQuery = `SELECT id, first_name FROM employee`;
+                        const employeeResult = await pool.query(employeeQuery);
+                        const employeeChoices = employeeResult.rows.map(employee => ({
+                            name: employee.first_name,
+                            value: employee.id
+                        }))
+
+                        const roleQuery = `SELECT id, title FROM role`
+                        const roleResult = await pool.query(roleQuery);
+                        const roleChoices = roleResult.rows.map(role => ({
+                            name: role.title,
+                            value: role.id
+                        }))
+
+                        const employeeAnswers = await inquirer.prompt([
+                            {
+                                type: "list",
+                                name: "updateEmployee",
+                                message: "Please select the employee to update",
+                                choices: employeeChoices
+                            },
+                            {
+                                type: "list",
+                                name: "newRole",
+                                message: 'Please select the new role.',
+                                choices: roleChoices
+                            }
+                        ]);
+
+                        const currentRoleQuery = `SELECT role_id FROM employee WHERE id = $1`;
+                        const currentRoleResult = await pool.query(currentRoleQuery, [employeeAnswers.updateEmployee]);
+                        const currentRoleId = currentRoleResult.rows[0].role_id
+
+                        if (employeeAnswers.newRole === currentRoleId) {
+                            console.log('The selected role is the same as the current role. Please select a different role')
+                        } else {
+                            const updateQuery = `UPDATE employee SET role_id = $1 WHERE id =$2`;
+                            await pool.query(updateQuery, [employeeAnswers.newRole, employeeAnswers.updateEmployee]);
+                            console.log(`Employee's role successfully updated!`)
+                        }
+
+                    } catch (err) {
+                        console.error('Error:', err);
+                    }
+                } else if (answers.selectAction === 'Quit') {
+                    console.log("Exiting the application...");
+                    process.exit(0);
                 }
-                ]);
-                
-                const currentRoleQuery = `SELECT role_id FROM employee WHERE id = $1`;
-                const currentRoleResult = await pool.query(currentRoleQuery, [employeeAnswers.updateEmployee]);
-                const currentRoleId = currentRoleResult.rows[0].role_id
-
-                if (employeeAnswers.newRole === currentRoleId) {
-                    console.log('The selected role is the same as the current role. Please select a different role')
-                } else {
-                    const updateQuery = `UPDATE employee SET role_id = $1 WHERE id =$2`;
-                    await pool.query(updateQuery, [employeeAnswers.newRole, employeeAnswers.updateEmployee]);
-                    console.log(`Employee's role successfully updated!`)
-                }
-
-            } catch (err) {
-                console.error('Error:', err);
+                this.startApp();
             }
+            );
     }
-         else if (answers.selectAction === 'Quit') {
-            console.log("Exiting the application...");
-            process.exit(0);
-    }
-        this.startApp();
-    }
-);
-}
 }
 
 
